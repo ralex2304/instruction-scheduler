@@ -1,0 +1,5 @@
+build
+/CPM_modules
+.cache
+/dumps
+/tests/dumps
