@@ -9,6 +9,7 @@ include(cmake/defaults.cmake)
 include(cmake/third_party.cmake)
 
 add_library(${PROJECT_NAME}_lib
+    ${CMAKE_CURRENT_SOURCE_DIR}/source/scheduler.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/source/configs_parser.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/source/dagraph.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/source/dump.cpp

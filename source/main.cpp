@@ -1,11 +1,9 @@
-#include "configs_parser.h"
-#include "instruction.h"
+#include "scheduler.h"
 
 #include <cxxopts.hpp>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <sstream>
 #include <string>
 
 using namespace scheduler;
@@ -48,27 +46,10 @@ int main(int argc, const char* argv[]) {
     std::filesystem::create_directory(dump_dir);
 
     try {
-        Config config(opt_result["units"].as<std::filesystem::path>(),
-                      opt_result["instructions"].as<std::filesystem::path>());
-
-        std::ifstream input_file;
-        input_file.exceptions(std::ifstream::badbit | std::ifstream::failbit);
-        input_file.open(opt_result["input"].as<std::filesystem::path>());
-
-        std::stringstream input_file_contents;
-        input_file_contents << input_file.rdbuf();
-        input_file.close();
-
-        std::vector<Instruction> instructions;
-        for (std::string line; std::getline(input_file_contents, line);) {
-            if (line.size() == 0)
-                continue;
-
-            instructions.push_back(Instruction::create(std::move(line), config));
-        }
-
-        for (auto instr : instructions)
-            instr.dump();
+        Scheduler scheduler(opt_result["units"].as<std::filesystem::path>(),
+                            opt_result["instructions"].as<std::filesystem::path>(),
+                            opt_result["input"].as<std::filesystem::path>(),
+                            opt_result["output"].as<std::filesystem::path>());
 
     } catch (const std::ifstream::failure &e) {
         std::cerr << "Input file read error: " << e.what() << std::endl;
