@@ -1,6 +1,7 @@
 #pragma once
 
 #include "arguments_parser.h"
+#include "types.h"
 
 #include <cstddef>
 #include <filesystem>
@@ -19,7 +20,8 @@ struct UnitConfig {
 
 struct InstructionConfig {
     std::string name;
-    size_t latency;
+    ticks_t latency;
+
     std::vector<std::map<std::string, UnitConfig>::const_iterator> units;
     std::vector<ArgsVariant> arguments;
 
@@ -28,8 +30,7 @@ struct InstructionConfig {
     }
 };
 
-class Config {
-public:
+struct Config {
     Config(std::filesystem::path units_path, std::filesystem::path instrs_path);
 
     const std::map<std::string, UnitConfig> units;

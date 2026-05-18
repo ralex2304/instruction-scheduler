@@ -3,7 +3,6 @@
 #include <cstddef>
 #include <filesystem>
 #include <format>
-#include <iostream>
 #include <string>
 #include <sys/types.h>
 #include <toml++/impl/forward_declarations.hpp>
