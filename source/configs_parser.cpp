@@ -59,7 +59,7 @@ void read_instruction_units(InstructionConfig* instruction, const toml::table& c
                         unit.source());
             }
 
-            instruction->units.push_back(it);
+            instruction->units.push_back(it->first);
         } else {
             throw toml::parse_error(
                     "\"units\" parameter must be list a of strings",
@@ -155,9 +155,9 @@ std::map<std::string, std::vector<InstructionConfig>> read_instructions(
             auto latency = config["latency"].template value_exact<int64_t>();
             if (!latency) {
                 throw toml::parse_error("no or invalid \"latency\" parameter", config.source());
-            } else if (*latency < 0) {
+            } else if (*latency <= 0) {
                 throw toml::parse_error(
-                        "\"latency\" parameter must be >= 0", config.source());
+                        "\"latency\" parameter must be > 0", config.source());
             }
 
             InstructionConfig instr = {.name = std::string{key.data()},

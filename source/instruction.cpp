@@ -75,8 +75,7 @@ Instruction Instruction::create(std::string line, const Config& config) {
         return Instruction(std::move(dst_reg),
                            std::move(src_regs),
                            is_memory,
-                           instr_config,
-                           line);
+                           instr_config);
     }
 
     throw std::runtime_error(std::format("Unknown instruction: \"{}\"", line));

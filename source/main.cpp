@@ -10,7 +10,7 @@ using namespace scheduler;
 
 int main(int argc, const char* argv[]) {
     cxxopts::Options options("instruction-scheduler",
-        "Data-dependecies, latency and resource aware instructions scheduler");
+        "Data-dependencies, latency and resource aware instructions scheduler");
 
     options.add_options()
         ("i,input", "Input file with instructions", cxxopts::value<std::filesystem::path>())
@@ -19,8 +19,8 @@ int main(int argc, const char* argv[]) {
                     cxxopts::value<std::filesystem::path>()->default_value("assets/units.toml"))
         ("x,instructions", "Config file with instructions",
                     cxxopts::value<std::filesystem::path>()->default_value("assets/instructions.toml"))
-        ("d,dump_dir", "Directory for graphs dumps",
-                    cxxopts::value<std::filesystem::path>()->default_value("dumps/"))
+        ("d,dump_dir", "Directory for graphs dumps. Dumps won't be generated if not specified",
+                    cxxopts::value<std::filesystem::path>())
         ("h,help", "Print help")
     ;
 
@@ -42,14 +42,19 @@ int main(int argc, const char* argv[]) {
         return 0;
     }
 
-    const auto& dump_dir = opt_result["dump_dir"].as<std::filesystem::path>();
-    std::filesystem::create_directory(dump_dir);
+    std::optional<std::filesystem::path> dump_dir;
+    if (opt_result.count("dump_dir")) {
+        dump_dir = opt_result["dump_dir"].as<std::filesystem::path>();
+        std::filesystem::create_directory(*dump_dir);
+    }
 
     try {
         Scheduler scheduler(opt_result["units"].as<std::filesystem::path>(),
                             opt_result["instructions"].as<std::filesystem::path>(),
                             opt_result["input"].as<std::filesystem::path>(),
-                            opt_result["output"].as<std::filesystem::path>());
+                            dump_dir);
+
+        scheduler.write_scheduled_instructions(opt_result["output"].as<std::filesystem::path>());
 
     } catch (const std::ifstream::failure &e) {
         std::cerr << "Input file read error: " << e.what() << std::endl;

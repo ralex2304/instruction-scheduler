@@ -12,6 +12,8 @@
 #include <toml++/toml.hpp>
 #include <vector>
 
+using namespace std::literals;
+
 namespace scheduler {
 
 struct UnitConfig {
@@ -22,7 +24,7 @@ struct InstructionConfig {
     std::string name;
     ticks_t latency;
 
-    std::vector<std::map<std::string, UnitConfig>::const_iterator> units;
+    std::vector<std::string> units;
     std::vector<ArgsVariant> arguments;
 
     bool operator==(const InstructionConfig& other) const {
@@ -35,6 +37,9 @@ struct Config {
 
     const std::map<std::string, UnitConfig> units;
     const std::map<std::string, std::vector<InstructionConfig>> instructions;
+
+    InstructionConfig start_instruction = {.name = "start", .latency = 0};
+    InstructionConfig end_instruction   = {.name = "end",   .latency = 0} ;
 };
 
 } //< namespace scheduler

@@ -1,11 +1,3 @@
-[start]
-symbol = [ "START" ]
-latency = 0
-
-[end]
-symbol = [ "END" ]
-latency = 0
-
 [load_rs_imm]
 symbol = [ "LD" ]
 arguments = [ "rd", "mem_rs_imm" ]

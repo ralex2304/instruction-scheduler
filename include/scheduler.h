@@ -2,8 +2,10 @@
 
 #include "configs_parser.h"
 #include "data_flow_graph.h"
+#include "types.h"
 
 #include <filesystem>
+#include <optional>
 
 namespace scheduler {
 
@@ -12,10 +14,22 @@ public:
     Scheduler(std::filesystem::path units_config_path,
               std::filesystem::path instr_config_path,
               std::filesystem::path input_path,
-              std::filesystem::path output_path);
+              std::optional<std::filesystem::path> dump_dir);
+
+    void write_scheduled_instructions(std::filesystem::path path);
+
 private:
+    struct ScheduledInstruction {
+        ticks_t time;
+        const std::string& unit;
+        std::string line;
+    };
+
+    void schedule(DataFlowGraph* dfg, std::optional<std::filesystem::path> dump_dir);
+
     Config config_;
-    DataFlowGraph data_flow_graph_;
+    std::vector<ScheduledInstruction> scheduled_instructions_;
+    ticks_t end_time_;
 };
 
 } //< namespace scheduler

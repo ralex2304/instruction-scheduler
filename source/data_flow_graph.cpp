@@ -1,18 +1,31 @@
 #include "data_flow_graph.h"
+#include "instruction.h"
 #include "types.h"
+#include "utils.h"
 
-#include <algorithm>
 #include <format>
 #include <fstream>
-#include <memory>
 #include <variant>
 
 using namespace scheduler;
 
-template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
-template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
+ticks_t DFGNode::get_time() const {
+    auto data = std::get_if<ScheduledDFGNode>(&data_);
+    assert(data && "Trying to get time for Unscheduled node");
+    return data->time;
+}
 
-template<class> inline constexpr bool always_false_v = false;
+ticks_t DFGNode::get_early_time() const {
+    auto data = std::get_if<UnscheduledDFGNode>(&data_);
+    assert(data && "Trying to get early time for scheduled node");
+    return data->early_time;
+}
+
+ticks_t DFGNode::get_late_time() const {
+    auto data = std::get_if<UnscheduledDFGNode>(&data_);
+    assert(data && "Trying to get late time for scheduled node");
+    return data->late_time;
+}
 
 ticks_t DFGNode::recalc_early_late_time(ticks_t parent_finish_time) {
     // TODO: possible optimization: traverse further only when all parents visited this node
@@ -22,9 +35,9 @@ ticks_t DFGNode::recalc_early_late_time(ticks_t parent_finish_time) {
 
             for (auto dep: dependencies_) {
                 auto dep_early_time = dep->recalc_early_late_time(val.early_time +
-                                                                  instruction_.get_latency());
+                                                                  instr_config.latency);
 
-                val.late_time = std::max(val.late_time, dep_early_time);
+                val.late_time = std::max(val.late_time, dep_early_time - instr_config.latency);
             }
 
             if (dependencies_.size() == 0)
@@ -34,7 +47,8 @@ ticks_t DFGNode::recalc_early_late_time(ticks_t parent_finish_time) {
         },
         [this](ScheduledDFGNode& val) {
             for (auto dep: dependencies_)
-                dep->recalc_early_late_time(val.time + instruction_.get_latency());
+                dep->recalc_early_late_time(val.time + instr_config.latency);
+
             return val.time;
         },
         [](auto&& val) {
@@ -43,17 +57,40 @@ ticks_t DFGNode::recalc_early_late_time(ticks_t parent_finish_time) {
     }, data_);
 }
 
+bool DFGNode::is_ready() const {
+    return std::visit(overloaded {
+                [](const UnscheduledDFGNode& val) { return val.unscheduled_parents == 0; },
+                [](const ScheduledDFGNode&) { return true; },
+                [](const auto&& val) {
+                    static_assert(always_false_v<decltype(val)>, "Unhandled DFGNode type");
+                }},
+            data_);
+}
+
+void DFGNode::schedule(ticks_t current_time) {
+    UnscheduledDFGNode* data = std::get_if<UnscheduledDFGNode>(&data_);
+    assert(data && "Trying to schedule instruction that has already been scheduled");
+    assert(current_time >= data->early_time && "Instruction isn't ready for scheduling");
+
+    data_.emplace<ScheduledDFGNode>(current_time);
+    for (auto& dep: dependencies_) {
+        auto dep_data = std::get_if<UnscheduledDFGNode>(&dep->data_);
+        assert(dep_data && "Unscheduled node has scheduled dependency");
+        dep_data->unscheduled_parents--;
+    }
+}
+
 void DFGNode::dump_node_label(std::ofstream& file) const {
     std::visit(overloaded {
         [this, &file](const UnscheduledDFGNode& val) {
             file << "Unscheduled node:\\r";
-            file << instruction_.get_line() << "\\r";
+            file << line << "\\r";
             file << "Early time = " << val.early_time << "\\r";
             file << "Late time = " << val.late_time << "\\r";
         },
         [this, &file](const ScheduledDFGNode& val) {
-            file << "Sceduled node:\\r";
-            file << instruction_.get_line() << "\\r";
+            file << "Scheduled node:\\r";
+            file << line << "\\r";
             file << "Time = " << val.time << "\\r";
         },
         [](const auto&& unhandled) {
@@ -77,17 +114,16 @@ DataFlowGraph::DataFlowGraph(std::filesystem::path input_path, const Config& con
     std::map<reg_t, DFGNode*> defs;
     DFGNode* last_mem_oper = nullptr;
 
-    nodes_.push_back(std::make_unique<DFGNode>(Instruction::create(std::string("END"), config)));
-    nodes_.push_back(std::make_unique<DFGNode>(Instruction::create(std::string("START"), config),
-                                               std::prev(nodes_.end())->get()));
+    nodes_.push_back(std::make_unique<DFGNode>(config.start_instruction, std::string("START")));
+    nodes_.push_back(std::make_unique<DFGNode>(config.end_instruction, std::string("END")));
 
     for (std::string line; std::getline(input_file_contents, line);) {
         if (line.size() == 0)
             continue;
 
-        Instruction instruction = Instruction::create(std::move(line), config);
+        Instruction instruction = Instruction::create(line, config);
 
-        nodes_.push_back(std::make_unique<DFGNode>(instruction, nodes_.begin()->get()));
+        nodes_.push_back(std::make_unique<DFGNode>(instruction.get_config(), line));
         DFGNode* cur_node = std::prev(nodes_.end())->get();
 
         auto dst_reg = instruction.get_dst_reg();
@@ -119,9 +155,11 @@ DataFlowGraph::DataFlowGraph(std::filesystem::path input_path, const Config& con
         }
 
         if (!depends)
-            nodes_[1]->add_dependency(cur_node);
+            start_node()->add_dependency(cur_node);
     }
 
-    nodes_[1]->recalc_early_late_time(0);
+    start_node()->tie_end_node(end_node());
+
+    recalc_early_late_time();
 }
 
