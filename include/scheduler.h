@@ -6,6 +6,7 @@
 
 #include <filesystem>
 #include <optional>
+#include <string_view>
 
 namespace scheduler {
 
@@ -21,7 +22,7 @@ public:
 private:
     struct ScheduledInstruction {
         ticks_t time;
-        const std::string& unit;
+        size_t unit_index;
         std::string line;
     };
 

@@ -4,9 +4,9 @@
 #include "dump.h"
 #include "types.h"
 
+#include <algorithm>
 #include <cassert>
 #include <fstream>
-#include <set>
 #include <variant>
 
 namespace scheduler {
@@ -33,8 +33,10 @@ public:
     const std::string line;
 
     void add_dependency(DFGNode* node) {
-        if (dependencies_.insert(node).second)
+        if (std::ranges::find(dependencies_, node) == dependencies_.end()) {
+            dependencies_.push_back(node);
             std::get_if<UnscheduledDFGNode>(&node->data_)->unscheduled_parents++;
+        }
     }
 
     void tie_end_node(DFGNode* end_node) {
@@ -67,6 +69,9 @@ public:
         }
     }
 
+    auto begin() const noexcept { return dependencies_.begin(); }
+    auto end()   const noexcept { return dependencies_.end(); }
+
 private:
     DFGNode(const DFGNode&) = delete;
     DFGNode& operator=(const DFGNode&) = delete;
@@ -76,11 +81,7 @@ private:
 
     std::variant<UnscheduledDFGNode, ScheduledDFGNode> data_;
 
-    std::set<DFGNode*> dependencies_;
-
-public:
-    const decltype(dependencies_)::const_iterator begin() { return dependencies_.begin(); }
-    const decltype(dependencies_)::const_iterator end()   { return dependencies_.end(); }
+    std::vector<DFGNode*> dependencies_;
 };
 
 class DataFlowGraph : public DumpableGraph {
@@ -103,12 +104,11 @@ public:
 
     void recalc_early_late_time() { start_node()->recalc_early_late_time(0); }
 
+    auto begin() const noexcept { return nodes_.begin(); };
+    auto end()   const noexcept { return nodes_.end(); };
+
 private:
     std::vector<std::unique_ptr<DFGNode>> nodes_;
-
-public:
-    decltype(nodes_)::const_iterator begin() const noexcept { return nodes_.begin(); };
-    decltype(nodes_)::const_iterator end()   const noexcept { return nodes_.end(); };
 };
 
 } //< namespace scheduler

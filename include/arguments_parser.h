@@ -10,6 +10,11 @@
 
 namespace scheduler {
 
+template <typename T>
+concept ParsableArg = requires(std::istringstream& ss) {
+    { T::parse(ss) };
+};
+
 template <bool DST>
 struct RegArg {
     static std::optional<reg_t> parse(std::istringstream& ss) {
@@ -26,8 +31,8 @@ struct RegArg {
         return reg;
     }
 
-    bool operator==(const RegArg<true>&)  const { return true; }
-    bool operator==(const RegArg<false>&) const { return true; }
+    bool operator==(const RegArg<DST>&) const = default;
+    bool operator==(const RegArg<!DST>&) const { return true; }
 
     static constexpr bool is_dst = DST;
 };
@@ -47,7 +52,7 @@ struct ImmArg {
         return num;
     }
 
-    bool operator==(const ImmArg&) const { return true; }
+    bool operator==(const ImmArg&) const = default;
 };
 
 struct RegImmArg {
@@ -87,10 +92,10 @@ struct RegImmArg {
         return std::pair(*reg, imm);
     }
 
-    bool operator==(const RegImmArg&) const { return true; }
+    bool operator==(const RegImmArg&) const = default;
 };
 
-template <typename T>
+template <ParsableArg T>
 struct MemoryArgBase {
     static std::invoke_result_t<decltype(T::parse),
                                 std::istringstream&> parse(std::istringstream& ss) {
@@ -110,7 +115,7 @@ struct MemoryArgBase {
         return res;
     }
 
-    bool operator==(const MemoryArgBase<T>&) const { return true; }
+    bool operator==(const MemoryArgBase<T>&) const = default;
 };
 
 using MemoryImmArg = MemoryArgBase<ImmArg>;

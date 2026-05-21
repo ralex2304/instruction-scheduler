@@ -10,9 +10,11 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
-#include <list>
+#include <iterator>
 #include <optional>
 #include <ostream>
+#include <set>
+#include <string_view>
 
 using namespace scheduler;
 
@@ -30,27 +32,11 @@ Scheduler::Scheduler(std::filesystem::path units_config_path,
         throw std::runtime_error(std::format("Input file read error: {}", e.what()));
     }
 
-namespace {
-
-void update_ready_from_partial_ready(std::list<DFGNode*>* ready, std::list<DFGNode*>* partial_ready,
-                                     ticks_t current_time) {
-    for (auto node_it = partial_ready->begin(); node_it != partial_ready->end();) {
-        if ((*node_it)->get_early_time() <= current_time) {
-            ready->push_back(*node_it);
-            node_it = partial_ready->erase(node_it);
-        } else {
-            node_it++;
-        }
-    }
-}
-
-} // anonymous namespace
-
 void Scheduler::schedule(DataFlowGraph* dfg, std::optional<std::filesystem::path> dump_dir) {
     assert(dfg);
 
-    std::list<DFGNode*> ready;
-    std::list<DFGNode*> partial_ready;
+    std::vector<DFGNode*> ready;
+    std::vector<DFGNode*> partial_ready;
 
     ticks_t current_time = 0;
 
@@ -59,23 +45,22 @@ void Scheduler::schedule(DataFlowGraph* dfg, std::optional<std::filesystem::path
         ready.push_back(dependency);
 
     while (!dfg->end_node()->is_scheduled()) {
-        std::map<std::string, UnitConfig> units(config_.units);
+        std::vector<UnitConfig> units(config_.get_units());
 
         std::set<DFGNode*> ready_dependencies;
 
-        // schedule ready pool
-        for (auto node_it = ready.begin(); node_it != ready.end();) {
+        std::erase_if(ready, [this, &units, &ready_dependencies, current_time](DFGNode* node) {
             bool scheduled = false;
-            if ((*node_it)->instr_config.latency == 0) {
+            if (node->instr_config.latency == 0) {
                 scheduled = true;
             } else {
-                for (const auto& unit: (*node_it)->instr_config.units) {
-                    if (units[unit].quantity > 0) {
-                        units[unit].quantity--;
+                for (const auto& unit_index: node->instr_config.units_indexes) {
+                    if (units[unit_index].quantity > 0) {
+                        units[unit_index].quantity--;
                         scheduled_instructions_.push_back({
                             .time = current_time,
-                            .unit = unit,
-                            .line = (*node_it)->line
+                            .unit_index = unit_index,
+                            .line = node->line
                         });
 
                         scheduled = true;
@@ -85,20 +70,26 @@ void Scheduler::schedule(DataFlowGraph* dfg, std::optional<std::filesystem::path
             }
 
             if (scheduled) {
-                (*node_it)->schedule(current_time);
-                for (const auto& dependency: **node_it)
+                node->schedule(current_time);
+                for (const auto& dependency: *node) {
                     if (dependency->is_ready())
                         ready_dependencies.insert(dependency);
-
-                node_it = ready.erase(node_it);
-            } else {
-                node_it++;
+                }
+                return true;
             }
-        }
+            return false;
+        });
 
         current_time++;
 
-        update_ready_from_partial_ready(&ready, &partial_ready, current_time);
+        auto partial_ready_to_ready_move_condition = [current_time](DFGNode* node) {
+                return node->get_early_time() <= current_time;
+            };
+        std::copy_if(std::make_move_iterator(partial_ready.begin()),
+                     std::make_move_iterator(partial_ready.end()),
+                     std::back_inserter(ready),
+                     partial_ready_to_ready_move_condition);
+        std::erase_if(partial_ready, partial_ready_to_ready_move_condition);
 
         for (const auto& dependency: ready_dependencies) {
             if (dependency->get_early_time() <= current_time)
@@ -109,7 +100,7 @@ void Scheduler::schedule(DataFlowGraph* dfg, std::optional<std::filesystem::path
 
         dfg->recalc_early_late_time();
 
-        ready.sort([](DFGNode* lhs, DFGNode* rhs) {
+        std::sort(ready.begin(), ready.end(), [](DFGNode* lhs, DFGNode* rhs) {
                         return lhs->get_late_time() < rhs->get_late_time();
                    });
 
@@ -132,26 +123,26 @@ void Scheduler::write_scheduled_instructions(std::filesystem::path path) {
             return;
         }
 
-        constexpr const char* cycle_header = "Cycle";
-        const size_t cycle_width = std::max(std::strlen(cycle_header),
+        constexpr std::string_view cycle_header = "Cycle";
+        const size_t cycle_width = std::max(cycle_header.length(),
                                             std::to_string(std::prev(scheduled_instructions_.end())
                                                            ->time).length());
 
-        constexpr const char* unit_header = "Unit";
-        const size_t unit_width = std::max(std::strlen(unit_header),
-                                           std::ranges::max_element(config_.units, {},
-                                                [](const auto& unit) { return unit.first.length(); })
-                                                                                 ->first.length());
+        constexpr std::string_view unit_header = "Unit";
+        const size_t unit_width = std::max(unit_header.length(),
+                                           std::ranges::max_element(config_.get_units(), {},
+                                                [](const auto& unit) { return unit.name.length(); })
+                                                                                 ->name.length());
 
-        constexpr const char* instr_header = "Instruction";
-        const size_t instr_width = std::strlen(instr_header);
+        constexpr std::string_view instr_header = "Instruction";
+        const size_t instr_width = instr_header.length();
 
         file <<  "| " << std::setw((int)cycle_width) << cycle_header;
         file << " | " << std::setw((int)unit_width) << unit_header;
-        file << " | " << instr_header << " |" << std::endl;
+        file << " | " << instr_header << " |\n";
 
         file << "|" << std::string(cycle_width + 2, '-') << "|" << std::string(unit_width + 2, '-');
-        file << "|" << std::string(instr_width + 2, '-') << "|" << std::endl;
+        file << "|" << std::string(instr_width + 2, '-') << "|\n";
 
         ticks_t last_time = ~0ul;
         for (const auto& instr: scheduled_instructions_) {
@@ -163,13 +154,13 @@ void Scheduler::write_scheduled_instructions(std::filesystem::path path) {
                 file << std::string(cycle_width, ' ');
             }
 
-            file << " | " << std::setw((int)unit_width) << instr.unit;
-            file << " | " << instr.line << std::endl;
+            file << " | " << std::setw((int)unit_width) << config_.get_units()[instr.unit_index].name;
+            file << " | " << instr.line << "\n";
         }
 
         file << "| " << std::setw((int)cycle_width) << end_time_;
         file << " | " << std::string(unit_width, ' ');
-        file << " | END" << std::endl;
+        file << " | END\n";
 
     } catch (const std::ofstream::failure& e) {
         throw std::runtime_error(std::format("Output file write error: {}", e.what()));

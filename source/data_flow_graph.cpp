@@ -61,7 +61,7 @@ bool DFGNode::is_ready() const {
     return std::visit(overloaded {
                 [](const UnscheduledDFGNode& val) { return val.unscheduled_parents == 0; },
                 [](const ScheduledDFGNode&) { return true; },
-                [](const auto&& val) {
+                [](auto&& val) {
                     static_assert(always_false_v<decltype(val)>, "Unhandled DFGNode type");
                 }},
             data_);
@@ -93,7 +93,7 @@ void DFGNode::dump_node_label(std::ofstream& file) const {
             file << line << "\\r";
             file << "Time = " << val.time << "\\r";
         },
-        [](const auto&& unhandled) {
+        [](auto&& unhandled) {
             static_assert(always_false_v<decltype(unhandled)>, "Unhandled DFGNode type");
         }
     }, data_);

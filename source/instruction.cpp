@@ -12,8 +12,8 @@ Instruction Instruction::create(std::string line, const Config& config) {
     std::string symbol;
     line_stream >> std::ws >> symbol;
 
-    auto instr_configs_it = config.instructions.find(symbol);
-    if (instr_configs_it == config.instructions.end())
+    auto instr_configs_it = config.get_instructions().find(symbol);
+    if (instr_configs_it == config.get_instructions().end())
         throw std::runtime_error(std::format("Instruction symbol \"{}\" is undefined", symbol));
 
     auto line_stream_recover = line_stream.tellg();
