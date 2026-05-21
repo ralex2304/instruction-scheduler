@@ -6,7 +6,6 @@
 
 #include <filesystem>
 #include <optional>
-#include <string_view>
 
 namespace scheduler {
 
@@ -18,6 +17,9 @@ public:
               std::optional<std::filesystem::path> dump_dir);
 
     void write_scheduled_instructions(std::filesystem::path path);
+
+    const auto& get_scheduled_instructions() const { return scheduled_instructions_; }
+    ticks_t get_end_time() const { return end_time_; }
 
 private:
     struct ScheduledInstruction {
