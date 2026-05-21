@@ -1,0 +1,44 @@
+name: "CI - build and test"
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+    container: docker.io/ralex2304/rv32-interpreter-ci:v1
+
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler:
+          - { cc: gcc, cxx: g++ }
+          - { cc: clang, cxx: clang++ }
+        build_type: [Debug, Release]
+        sanitizers: ["address,undefined", ""]
+        exclude:
+          - build_type: Release
+            sanitizers: "address,undefined"
+
+    steps:
+      - name: 'checkout'
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: 'build'
+        run: |
+          cmake -S . -B build \
+            -DUSE_SANITIZER='${{matrix.sanitizers}}' \
+            -DCMAKE_BUILD_TYPE=${{matrix.build_type}} \
+            -DCMAKE_C_COMPILER=${{matrix.compiler.cc}} \
+            -DCMAKE_CXX_COMPILER=${{matrix.compiler.cxx}}
+          cmake --build build --parallel `nproc`
+
+      - name: 'run tests'
+        run: |
+          ctest --test-dir build --output-on-failure --parallel `nproc`
+
