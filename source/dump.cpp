@@ -1,5 +1,6 @@
 #include "dump.h"
 
+#include <cassert>
 #include <fstream>
 #include <iostream>
 

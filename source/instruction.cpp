@@ -1,8 +1,9 @@
 #include "instruction.h"
 
+#include <cassert>
 #include <format>
-#include <string>
 #include <istream>
+#include <string>
 
 using namespace scheduler;
 

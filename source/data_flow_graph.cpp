@@ -3,6 +3,7 @@
 #include "types.h"
 #include "utils.h"
 
+#include <cassert>
 #include <format>
 #include <fstream>
 #include <variant>

@@ -1,5 +1,6 @@
 #include "configs_parser.h"
 
+#include <cassert>
 #include <cstddef>
 #include <filesystem>
 #include <format>
