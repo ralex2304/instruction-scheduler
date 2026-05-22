@@ -14,8 +14,6 @@ namespace scheduler {
 struct UnscheduledDFGNode {
     ticks_t early_time;
     ticks_t late_time;
-
-    size_t unscheduled_parents;
 };
 
 struct ScheduledDFGNode {
@@ -27,16 +25,17 @@ public:
     DFGNode(const InstructionConfig& instr_config, std::string line)
         : instr_config(instr_config)
         , line(line)
-        , data_(UnscheduledDFGNode(0, 0, 0)) {}
+        , data_(UnscheduledDFGNode(0, 0)) {}
 
     const InstructionConfig& instr_config;
     const std::string line;
 
     void add_dependency(DFGNode* node) {
-        if (std::ranges::find(dependencies_, node) == dependencies_.end()) {
+        if (std::ranges::find(dependencies_, node) == dependencies_.end())
             dependencies_.push_back(node);
-            std::get_if<UnscheduledDFGNode>(&node->data_)->unscheduled_parents++;
-        }
+
+        if (std::ranges::find(node->parents_, this) == node->parents_.end())
+            node->parents_.push_back(this);
     }
 
     void tie_end_node(DFGNode* end_node) {
@@ -52,9 +51,6 @@ public:
     ticks_t get_time() const;
     ticks_t get_early_time() const;
     ticks_t get_late_time() const;
-
-    void recalc_early_time(ticks_t parent_finish_time);
-    ticks_t recalc_late_time();
 
     bool is_scheduled() const { return std::holds_alternative<ScheduledDFGNode>(data_); }
 
@@ -79,10 +75,15 @@ private:
     DFGNode(DFGNode&&) noexcept = default;
     DFGNode& operator=(DFGNode&&) noexcept = delete;
 
+    friend class DataFlowGraph;
+
+    void recalc_early_time(ticks_t parent_finish_time);
+    void recalc_late_time(ticks_t child_late_time);
 
     std::variant<UnscheduledDFGNode, ScheduledDFGNode> data_;
 
     std::vector<DFGNode*> dependencies_;
+    std::vector<DFGNode*> parents_;
 };
 
 class DataFlowGraph : public DumpableGraph {
@@ -105,8 +106,8 @@ public:
 
     void recalc_early_late_time() {
         start_node()->recalc_early_time(0);
-        // TODO: possible optimization: keep child->parent connections
-        start_node()->recalc_late_time();
+        end_node()->recalc_late_time(end_node()->is_scheduled() ? end_node()->get_time()
+                                                                : end_node()->get_late_time());
     }
 
     auto begin() const noexcept { return nodes_.begin(); };

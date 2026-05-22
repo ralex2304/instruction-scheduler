@@ -33,6 +33,7 @@ void DFGNode::recalc_early_time(ticks_t parent_finish_time) {
     // TODO: possible optimization: traverse further only when all parents visited this node
     return std::visit(overloaded {
         [this, parent_finish_time](UnscheduledDFGNode& val) {
+            val.late_time = std::numeric_limits<decltype(val.late_time)>::max();
             val.early_time = std::max(val.early_time, parent_finish_time);
 
             for (auto dep: dependencies_)
@@ -48,27 +49,16 @@ void DFGNode::recalc_early_time(ticks_t parent_finish_time) {
     }, data_);
 }
 
-ticks_t DFGNode::recalc_late_time() {
+void DFGNode::recalc_late_time(ticks_t child_late_time) {
     // TODO: possible optimization: traverse further only when all parents visited this node
     return std::visit(overloaded {
-        [this](UnscheduledDFGNode& val) {
-            val.late_time = std::numeric_limits<decltype(val.late_time)>::max();
-            for (auto dep: dependencies_) {
-                auto dep_late_time = dep->recalc_late_time();
-
-                val.late_time = std::min(val.late_time, dep_late_time - instr_config.latency);
-            }
-
-            if (dependencies_.size() == 0)
-                val.late_time = val.early_time;
-
-            return val.late_time;
+        [this, child_late_time](UnscheduledDFGNode& val) {
+            val.late_time = std::min(val.late_time, child_late_time - instr_config.latency);
+            for (auto parent: parents_)
+                parent->recalc_late_time(val.late_time);
         },
-        [this](ScheduledDFGNode& val) {
-            for (auto dep: dependencies_)
-                dep->recalc_late_time();
-
-            return val.time;
+        [](ScheduledDFGNode&) {
+            // do nothing
         },
         [](auto&& val) {
             static_assert(always_false_v<decltype(val)>, "Unhandled DFGNode type");
@@ -78,7 +68,12 @@ ticks_t DFGNode::recalc_late_time() {
 
 bool DFGNode::is_ready() const {
     return std::visit(overloaded {
-                [](const UnscheduledDFGNode& val) { return val.unscheduled_parents == 0; },
+                [this](const UnscheduledDFGNode&) {
+                    for (auto parent: parents_)
+                        if (!parent->is_scheduled())
+                            return false;
+                    return true;
+                },
                 [](const ScheduledDFGNode&) { return true; },
                 [](auto&& val) {
                     static_assert(always_false_v<decltype(val)>, "Unhandled DFGNode type");
@@ -92,11 +87,6 @@ void DFGNode::schedule(ticks_t current_time) {
     assert(current_time >= data->early_time && "Instruction isn't ready for scheduling");
 
     data_.emplace<ScheduledDFGNode>(current_time);
-    for (auto& dep: dependencies_) {
-        auto dep_data = std::get_if<UnscheduledDFGNode>(&dep->data_);
-        assert(dep_data && "Unscheduled node has scheduled dependency");
-        dep_data->unscheduled_parents--;
-    }
 }
 
 void DFGNode::dump_node_label(std::ofstream& file) const {
