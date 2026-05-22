@@ -29,6 +29,22 @@ ticks_t DFGNode::get_late_time() const {
     return data->late_time;
 }
 
+void DFGNode::tie_end_node(DFGNode* end_node, size_t traversal_counter) {
+    if (traversal_status_(traversal_counter) == VISITED)
+        return;
+
+    traversal_counter_ = traversal_counter + VISITED;
+
+    if (this == end_node)
+        return;
+
+    for (auto& dep: dependencies_)
+        dep->tie_end_node(end_node, traversal_counter);
+
+    if (dependencies_.empty())
+        add_dependency(end_node);
+}
+
 void DFGNode::recalc_early_time(ticks_t parent_finish_time, size_t traversal_counter) {
     ticks_t early_time = std::visit(overloaded {
         [parent_finish_time](UnscheduledDFGNode& val) {
@@ -181,7 +197,8 @@ DataFlowGraph::DataFlowGraph(std::filesystem::path input_path, const Config& con
             start_node()->add_dependency(cur_node);
     }
 
-    start_node()->tie_end_node(end_node());
+    start_node()->tie_end_node(end_node(), traversal_counter_);
+    traversal_counter_ += DumpableNode::VISITED;
 
     recalc_early_late_time();
 }

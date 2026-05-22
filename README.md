@@ -1,5 +1,12 @@
 # Instruction scheduler
 
+Data-dependency, latency and resource-aware instruction scheduler
+
+Instructions and execution units configurations are given in TOML files
+
+Input assembly must be in SSA form
+
+
 ```assembly
 Input:                          Result:
 

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(instrucion-scheduler LANGUAGES CXX)
+project(instruction-scheduler LANGUAGES CXX)
 
 include(cmake/tools.cmake)
 

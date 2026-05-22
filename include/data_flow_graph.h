@@ -39,16 +39,6 @@ public:
             node->parents_.push_back(this);
     }
 
-    void tie_end_node(DFGNode* end_node) {
-        if (this == end_node) return;
-
-        for (auto& dep: dependencies_)
-            dep->tie_end_node(end_node);
-
-        if (dependencies_.empty())
-            add_dependency(end_node);
-    }
-
     ticks_t get_time() const;
     ticks_t get_early_time() const;
     ticks_t get_late_time() const;
@@ -77,6 +67,8 @@ private:
     DFGNode& operator=(DFGNode&&) noexcept = delete;
 
     friend class DataFlowGraph;
+
+    void tie_end_node(DFGNode* end_node, size_t traversal_counter);
 
     void recalc_early_time(ticks_t parent_finish_time, size_t traversal_counter);
     void recalc_late_time(ticks_t dependency_late_time, size_t traversal_counter);

@@ -32,10 +32,6 @@ target_compile_options(instruction-scheduler-defaults
         -Wunreachable-code
         -Wmissing-declarations
         -Wmissing-include-dirs
-        -Wfloat-equal
-        -Wunreachable-code
-        -Wmissing-declarations
-        -Wmissing-include-dirs
 
         -fstack-protector-strong
         -fcheck-new
