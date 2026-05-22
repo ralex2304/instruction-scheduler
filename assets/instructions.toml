@@ -1,0 +1,64 @@
+[load_rs_imm]
+symbol = [ "LD" ]
+arguments = [ "rd", "mem_rs_imm" ]
+latency = 3
+memory_order = "STRICT"
+units = [ "LSU" ]
+
+[load_imm]
+symbol = [ "LD" ]
+arguments = [ "rd", "mem_imm" ]
+latency = 3
+memory_order = "STRICT"
+units = [ "LSU" ]
+
+[store_rs_imm]
+symbol = [ "ST" ]
+arguments = [ "rs", "mem_rs_imm" ]
+latency = 1
+memory_order = "STRICT"
+units = [ "LSU" ]
+
+[store_imm]
+symbol = [ "ST" ]
+arguments = [ "rs", "mem_imm" ]
+latency = 1
+memory_order = "STRICT"
+units = [ "LSU" ]
+
+[simple_arithm_rs0_rs1]
+symbol = [ "ADD", "SUB" ]
+arguments = [ "rd", "rs", "rs" ]
+latency = 2
+units = [ "Arithm", "ArithmComplex" ]
+
+[simple_arithm_rs_imm]
+symbol = [ "ADD", "SUB", "SHL", "SHR" ]
+arguments = [ "rd", "rs", "imm" ]
+latency = 1
+units = [ "Arithm", "ArithmComplex" ]
+
+[mov_rs]
+symbol = [ "MOV" ]
+arguments = [ "rd", "rs" ]
+latency = 1
+units = [ "Arithm", "ArithmComplex" ]
+
+[mov_imm]
+symbol = [ "MOV" ]
+arguments = [ "rd", "imm" ]
+latency = 1
+units = [ "Arithm", "ArithmComplex" ]
+
+[complex_arithm_mul]
+symbol = [ "MUL" ]
+arguments = [ "rd", "rs", "rs" ]
+latency = 4
+units = [ "ArithmComplex" ]
+
+[complex_arithm_div]
+symbol = [ "DIV" ]
+arguments = [ "rd", "rs", "rs" ]
+latency = 12
+units = [ "ArithmComplex" ]
+

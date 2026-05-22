@@ -1,0 +1,5 @@
+LD R0, [0x2000]
+ADD R5, R0, R0
+MUL R7, R0, R0
+ST R5, [R7+0x4]
+
