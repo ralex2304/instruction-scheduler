@@ -29,41 +29,55 @@ ticks_t DFGNode::get_late_time() const {
     return data->late_time;
 }
 
-void DFGNode::recalc_early_time(ticks_t parent_finish_time) {
-    // TODO: possible optimization: traverse further only when all parents visited this node
-    return std::visit(overloaded {
-        [this, parent_finish_time](UnscheduledDFGNode& val) {
-            val.late_time = std::numeric_limits<decltype(val.late_time)>::max();
-            val.early_time = std::max(val.early_time, parent_finish_time);
-
-            for (auto dep: dependencies_)
-                dep->recalc_early_time(val.early_time + instr_config.latency);
+void DFGNode::recalc_early_time(ticks_t parent_finish_time, size_t traversal_counter) {
+    ticks_t early_time = std::visit(overloaded {
+        [parent_finish_time](UnscheduledDFGNode& val) {
+            return val.early_time = std::max(val.early_time, parent_finish_time);
         },
-        [this](ScheduledDFGNode& val) {
-            for (auto dep: dependencies_)
-                dep->recalc_early_time(val.time + instr_config.latency);
+        [](ScheduledDFGNode& val) {
+            return val.time;
         },
         [](auto&& val) {
             static_assert(always_false_v<decltype(val)>, "Unhandled DFGNode type");
         }
     }, data_);
+
+    for (auto parent: parents_)
+        if (parent->traversal_status_(traversal_counter) == UNVISITED)
+            return;
+
+    traversal_counter_ = traversal_counter + VISITED;
+
+    for (auto dep: dependencies_)
+        dep->recalc_early_time(early_time + instr_config.latency, traversal_counter);
+
 }
 
-void DFGNode::recalc_late_time(ticks_t child_late_time) {
-    // TODO: possible optimization: traverse further only when all parents visited this node
-    return std::visit(overloaded {
-        [this, child_late_time](UnscheduledDFGNode& val) {
-            val.late_time = std::min(val.late_time, child_late_time - instr_config.latency);
-            for (auto parent: parents_)
-                parent->recalc_late_time(val.late_time);
+void DFGNode::recalc_late_time(ticks_t dependency_late_time, size_t traversal_counter) {
+    ticks_t late_time = std::visit(overloaded {
+        [this, traversal_counter, dependency_late_time](UnscheduledDFGNode& val) {
+            if (traversal_status_(traversal_counter) == UNVISITED) {
+                traversal_counter_ = traversal_counter + VISITING;
+                return val.late_time = dependency_late_time - instr_config.latency;
+            }
+            return val.late_time = std::min(val.late_time, dependency_late_time - instr_config.latency);
         },
-        [](ScheduledDFGNode&) {
-            // do nothing
+        [](ScheduledDFGNode& val) {
+            return val.time;
         },
         [](auto&& val) {
             static_assert(always_false_v<decltype(val)>, "Unhandled DFGNode type");
         }
     }, data_);
+
+    for (auto dep: dependencies_)
+        if (dep->traversal_status_(traversal_counter) != VISITED)
+            return;
+
+    traversal_counter_ = traversal_counter + VISITED;
+
+    for (auto parent: parents_)
+        parent->recalc_late_time(late_time, traversal_counter);
 }
 
 bool DFGNode::is_ready() const {
@@ -127,7 +141,7 @@ DataFlowGraph::DataFlowGraph(std::filesystem::path input_path, const Config& con
     nodes_.push_back(std::make_unique<DFGNode>(config.end_instruction, std::string("END")));
 
     for (std::string line; std::getline(input_file_contents, line);) {
-        if (line.size() == 0)
+        if (line.empty())
             continue;
 
         Instruction instruction = Instruction::create(line, config);

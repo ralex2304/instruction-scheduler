@@ -121,7 +121,7 @@ void Scheduler::write_scheduled_instructions(std::filesystem::path path) {
         file.exceptions(std::ifstream::badbit | std::ifstream::failbit);
         file.open(path);
 
-        if (scheduled_instructions_.size() == 0) {
+        if (scheduled_instructions_.empty()) {
             file << "No instructions were scheduled";
             return;
         }

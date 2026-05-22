@@ -2,6 +2,7 @@
 
 #include "configs_parser.h"
 #include "dump.h"
+#include "graph_traversal.h"
 #include "types.h"
 
 #include <algorithm>
@@ -44,7 +45,7 @@ public:
         for (auto& dep: dependencies_)
             dep->tie_end_node(end_node);
 
-        if (dependencies_.size() == 0)
+        if (dependencies_.empty())
             add_dependency(end_node);
     }
 
@@ -77,8 +78,8 @@ private:
 
     friend class DataFlowGraph;
 
-    void recalc_early_time(ticks_t parent_finish_time);
-    void recalc_late_time(ticks_t child_late_time);
+    void recalc_early_time(ticks_t parent_finish_time, size_t traversal_counter);
+    void recalc_late_time(ticks_t dependency_late_time, size_t traversal_counter);
 
     std::variant<UnscheduledDFGNode, ScheduledDFGNode> data_;
 
@@ -105,9 +106,12 @@ public:
     }
 
     void recalc_early_late_time() {
-        start_node()->recalc_early_time(0);
+        start_node()->recalc_early_time(0, traversal_counter_);
+        traversal_counter_ += TraversableNode::VISITED;
         end_node()->recalc_late_time(end_node()->is_scheduled() ? end_node()->get_time()
-                                                                : end_node()->get_late_time());
+                                                                : end_node()->get_early_time(),
+                                     traversal_counter_);
+        traversal_counter_ += TraversableNode::VISITED;
     }
 
     auto begin() const noexcept { return nodes_.begin(); };
