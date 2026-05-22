@@ -10,7 +10,7 @@ using namespace scheduler;
 
 int main(int argc, const char* argv[]) {
     cxxopts::Options options("instruction-scheduler",
-        "Data-dependencies, latency and resource aware instructions scheduler");
+        "Data-dependency, latency and resource aware instruction scheduler");
 
     options.add_options()
         ("i,input", "Input file with instructions", cxxopts::value<std::filesystem::path>())
