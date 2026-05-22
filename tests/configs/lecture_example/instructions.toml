@@ -1,35 +1,42 @@
+[load_rd_rs_rs]
+symbol = [ "LD" ]
+arguments = [ "rd", "rs", "rs" ]
+latency = 3
+memory_order = "RELAXED"
+units = [ "LSU" ]
+
 [load_rs_imm]
 symbol = [ "LD" ]
 arguments = [ "rd", "mem_rs_imm" ]
 latency = 3
-memory_order = "STRICT"
+memory_order = "RELAXED"
 units = [ "LSU" ]
 
 [load_imm]
 symbol = [ "LD" ]
 arguments = [ "rd", "mem_imm" ]
 latency = 3
-memory_order = "STRICT"
+memory_order = "RELAXED"
 units = [ "LSU" ]
 
 [store_rs_imm]
 symbol = [ "ST" ]
 arguments = [ "rs", "mem_rs_imm" ]
 latency = 1
-memory_order = "STRICT"
+memory_order = "RELAXED"
 units = [ "LSU" ]
 
 [store_imm]
 symbol = [ "ST" ]
 arguments = [ "rs", "mem_imm" ]
 latency = 1
-memory_order = "STRICT"
+memory_order = "RELAXED"
 units = [ "LSU" ]
 
 [simple_arithm_rs0_rs1]
-symbol = [ "ADD", "SUB" ]
+symbol = [ "ADD", "SUB", "SHL", "SHR" ]
 arguments = [ "rd", "rs", "rs" ]
-latency = 2
+latency = 1
 units = [ "Arithm", "ArithmComplex" ]
 
 [simple_arithm_rs_imm]
@@ -53,12 +60,12 @@ units = [ "Arithm", "ArithmComplex" ]
 [complex_arithm_mul]
 symbol = [ "MUL" ]
 arguments = [ "rd", "rs", "rs" ]
-latency = 4
+latency = 3
 units = [ "ArithmComplex" ]
 
 [complex_arithm_div]
 symbol = [ "DIV" ]
 arguments = [ "rd", "rs", "rs" ]
-latency = 12
+latency = 7
 units = [ "ArithmComplex" ]
 

@@ -6,6 +6,7 @@
 #include <cassert>
 #include <format>
 #include <fstream>
+#include <iostream>
 #include <variant>
 
 using namespace scheduler;
@@ -28,27 +29,44 @@ ticks_t DFGNode::get_late_time() const {
     return data->late_time;
 }
 
-ticks_t DFGNode::recalc_early_late_time(ticks_t parent_finish_time) {
+void DFGNode::recalc_early_time(ticks_t parent_finish_time) {
     // TODO: possible optimization: traverse further only when all parents visited this node
     return std::visit(overloaded {
         [this, parent_finish_time](UnscheduledDFGNode& val) {
             val.early_time = std::max(val.early_time, parent_finish_time);
 
-            for (auto dep: dependencies_) {
-                auto dep_early_time = dep->recalc_early_late_time(val.early_time +
-                                                                  instr_config.latency);
+            for (auto dep: dependencies_)
+                dep->recalc_early_time(val.early_time + instr_config.latency);
+        },
+        [this](ScheduledDFGNode& val) {
+            for (auto dep: dependencies_)
+                dep->recalc_early_time(val.time + instr_config.latency);
+        },
+        [](auto&& val) {
+            static_assert(always_false_v<decltype(val)>, "Unhandled DFGNode type");
+        }
+    }, data_);
+}
 
-                val.late_time = std::max(val.late_time, dep_early_time - instr_config.latency);
+ticks_t DFGNode::recalc_late_time() {
+    // TODO: possible optimization: traverse further only when all parents visited this node
+    return std::visit(overloaded {
+        [this](UnscheduledDFGNode& val) {
+            val.late_time = std::numeric_limits<decltype(val.late_time)>::max();
+            for (auto dep: dependencies_) {
+                auto dep_late_time = dep->recalc_late_time();
+
+                val.late_time = std::min(val.late_time, dep_late_time - instr_config.latency);
             }
 
             if (dependencies_.size() == 0)
                 val.late_time = val.early_time;
 
-            return val.early_time;
+            return val.late_time;
         },
         [this](ScheduledDFGNode& val) {
             for (auto dep: dependencies_)
-                dep->recalc_early_late_time(val.time + instr_config.latency);
+                dep->recalc_late_time();
 
             return val.time;
         },
@@ -146,7 +164,7 @@ DataFlowGraph::DataFlowGraph(std::filesystem::path input_path, const Config& con
             depends = true;
         }
 
-        if (instruction.is_memory()) {
+        if (instruction.get_config().memory_order == MemoryOrder::STRICT) {
             if (last_mem_oper) {
                 last_mem_oper->add_dependency(cur_node);
                 depends = true;

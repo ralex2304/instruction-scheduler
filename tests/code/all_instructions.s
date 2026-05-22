@@ -2,6 +2,7 @@ LD R1, [0x5]
 LD R0, [R1+0x10]
 ST R0, [R0+0x4]
 ST R1, [0x32]
+ST R1, [R0]
 ADD R10, R0, R1
 SUB R20, R0, R1
 ADD R11, R0, 0x3

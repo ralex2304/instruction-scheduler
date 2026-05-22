@@ -80,6 +80,8 @@ void read_instruction_arguments(InstructionConfig* instruction, const toml::tabl
     bool found_dst = false;
     arguments->for_each([&instruction, &found_dst, arguments](auto& arg) {
         if constexpr (toml::is_string<decltype(arg)>) {
+            bool is_memory = false;
+
             if (*arg == "rd") {
                 if (found_dst) {
                     throw toml::parse_error(std::format(
@@ -95,13 +97,20 @@ void read_instruction_arguments(InstructionConfig* instruction, const toml::tabl
                 instruction->arguments.push_back(ImmArg());
             } else if (*arg == "mem_imm") {
                 instruction->arguments.push_back(MemoryImmArg());
+                is_memory = true;
             } else if (*arg == "mem_rs_imm") {
                 instruction->arguments.push_back(MemoryRegImmArg());
+                is_memory = true;
             } else {
                 throw toml::parse_error(std::format(
                         "argument \"{}\" is invalid", *arg).c_str(),
                         arg.source());
             }
+
+            if (is_memory && instruction->memory_order == MemoryOrder::NON_MEMORY)
+                throw toml::parse_error(
+                    "instructions has memory arguments and \"NON_MEMORY\" memory order",
+                    arg.source());
         } else {
             throw toml::parse_error(
                     "\"arguments\" parameter must be list a of strings",
@@ -157,8 +166,24 @@ void Config::read_instructions(std::filesystem::path path, std::map<std::string,
                         "\"latency\" parameter must be > 0", config.source());
             }
 
+            MemoryOrder memory_order = MemoryOrder::NON_MEMORY;
+            auto mem_order_s = config["memory_order"].template value_exact<std::string>();
+            if (mem_order_s) {
+                if (*mem_order_s == "NON_MEMORY")
+                    memory_order = MemoryOrder::NON_MEMORY;
+                else if (*mem_order_s == "RELAXED")
+                    memory_order = MemoryOrder::RELAXED;
+                else if (*mem_order_s == "STRICT")
+                    memory_order = MemoryOrder::STRICT;
+                else
+                    throw toml::parse_error(
+                            "\"memory_order\" parameter must be one of the following: "
+                            "NON_MEMORY, RELAXED, STRICT", config.source());
+            }
+
             InstructionConfig instr = {.name = std::string{key.data()},
-                                       .latency = static_cast<size_t>(*latency)};
+                                       .latency = static_cast<size_t>(*latency),
+                                       .memory_order = memory_order};
 
             read_instruction_units(&instr, config, units_map);
 

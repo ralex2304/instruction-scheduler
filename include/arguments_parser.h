@@ -59,7 +59,6 @@ struct RegImmArg {
     static std::optional<std::pair<reg_t, imm_t>> parse(std::istringstream& ss) {
         std::optional<reg_t> reg = std::nullopt;
         imm_t imm = 0;
-        bool imm_found = false;
 
         std::optional<bool> sign = true;
 
@@ -70,7 +69,6 @@ struct RegImmArg {
                     throw std::runtime_error("immediate parsing error");
 
                 imm += sign ? *imm_parse : -*imm_parse;
-                imm_found = true;
             }
 
             ss >> std::ws;
@@ -86,7 +84,7 @@ struct RegImmArg {
 
         } while (sign);
 
-        if (!reg || !imm_found)
+        if (!reg)
             return std::nullopt;
 
         return std::pair(*reg, imm);

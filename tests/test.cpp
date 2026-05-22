@@ -1,5 +1,6 @@
 #include "configs_parser.h"
 #include "data_flow_graph.h"
+#include "scheduler.h"
 
 #include <filesystem>
 
@@ -13,6 +14,7 @@ using namespace scheduler;
 
 const std::filesystem::path TESTS_DIR = TESTS_SRC_DIR;
 const std::filesystem::path CODE_DIR = TESTS_DIR / "code";
+const std::filesystem::path CONFIGS_DIR = TESTS_DIR / "configs";
 
 const std::filesystem::path UNITS_TOML        = TESTS_DIR / ".." / "assets" / "units.toml";
 const std::filesystem::path INSTRUCTIONS_TOML = TESTS_DIR / ".." / "assets" / "instructions.toml";
@@ -63,6 +65,15 @@ TEST(ExamplesTest, RegisterUndefined) {
     EXPECT_THROW({
         DataFlowGraph dfg(CODE_DIR / "register_undefined.s", default_config, GENERATE_DUMP_IMAGES);
     }, std::runtime_error);
+}
+
+TEST(LectionExampleTest, SchedulingTime) {
+    Scheduler scheduler(CONFIGS_DIR / "lecture_example" / "units.toml",
+                        CONFIGS_DIR / "lecture_example" / "instructions.toml",
+                        CODE_DIR / "lecture_example.s",
+                        get_test_dump_dir(test_info_));
+
+    EXPECT_EQ(scheduler.get_end_time(), 15);
 }
 
 } // anonymous namespace

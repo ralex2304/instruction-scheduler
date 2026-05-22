@@ -53,7 +53,8 @@ public:
     ticks_t get_early_time() const;
     ticks_t get_late_time() const;
 
-    ticks_t recalc_early_late_time(ticks_t parent_finish_time);
+    void recalc_early_time(ticks_t parent_finish_time);
+    ticks_t recalc_late_time();
 
     bool is_scheduled() const { return std::holds_alternative<ScheduledDFGNode>(data_); }
 
@@ -102,7 +103,11 @@ public:
         start_node()->dump_subtree(file, nullptr, traversal_counter_);
     }
 
-    void recalc_early_late_time() { start_node()->recalc_early_late_time(0); }
+    void recalc_early_late_time() {
+        start_node()->recalc_early_time(0);
+        // TODO: possible optimization: keep child->parent connections
+        start_node()->recalc_late_time();
+    }
 
     auto begin() const noexcept { return nodes_.begin(); };
     auto end()   const noexcept { return nodes_.end(); };

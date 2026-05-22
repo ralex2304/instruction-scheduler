@@ -35,6 +35,9 @@ Scheduler::Scheduler(std::filesystem::path units_config_path,
 void Scheduler::schedule(DataFlowGraph* dfg, std::optional<std::filesystem::path> dump_dir) {
     assert(dfg);
 
+    if (dump_dir)
+        dfg->dump(*dump_dir / "dfg");
+
     std::vector<DFGNode*> ready;
     std::vector<DFGNode*> partial_ready;
 
@@ -48,6 +51,10 @@ void Scheduler::schedule(DataFlowGraph* dfg, std::optional<std::filesystem::path
         std::vector<UnitConfig> units(config_.get_units());
 
         std::set<DFGNode*> ready_dependencies;
+
+        std::sort(ready.begin(), ready.end(), [](DFGNode* lhs, DFGNode* rhs) {
+                        return lhs->get_late_time() < rhs->get_late_time();
+                   });
 
         std::erase_if(ready, [this, &units, &ready_dependencies, current_time](DFGNode* node) {
             bool scheduled = false;
@@ -80,6 +87,8 @@ void Scheduler::schedule(DataFlowGraph* dfg, std::optional<std::filesystem::path
             return false;
         });
 
+        dfg->recalc_early_late_time();
+
         current_time++;
 
         auto partial_ready_to_ready_move_condition = [current_time](DFGNode* node) {
@@ -97,12 +106,6 @@ void Scheduler::schedule(DataFlowGraph* dfg, std::optional<std::filesystem::path
             else
                 partial_ready.push_back(dependency);
         }
-
-        dfg->recalc_early_late_time();
-
-        std::sort(ready.begin(), ready.end(), [](DFGNode* lhs, DFGNode* rhs) {
-                        return lhs->get_late_time() < rhs->get_late_time();
-                   });
 
         if (dump_dir)
             dfg->dump(*dump_dir / std::format("schedule_{}", current_time));

@@ -24,13 +24,12 @@ Instruction Instruction::create(std::string line, const Config& config) {
 
         std::optional<reg_t> dst_reg;
         std::set<reg_t> src_regs;
-        bool is_memory = false;
 
         bool correct = true; //< true for instructions without arguments
         for (auto it = instr_config.arguments.begin(); it != instr_config.arguments.end(); it++) {
             const auto& arg = *it;
 
-            correct = std::visit([&line_stream, &dst_reg, &src_regs, &is_memory](auto&& type) {
+            correct = std::visit([&line_stream, &dst_reg, &src_regs](auto&& type) {
                 auto result = type.parse(line_stream);
                 if (!result) {
                     return false;
@@ -45,10 +44,9 @@ Instruction Instruction::create(std::string line, const Config& config) {
                 } else if constexpr (std::is_same_v<T, ImmArg>) {
                     // do nothing
                 } else if constexpr (std::is_same_v<T, MemoryImmArg>) {
-                    is_memory = true;
+                    // do nothing
                 } else if constexpr (std::is_same_v<T, MemoryRegImmArg>) {
                     src_regs.insert(result->first);
-                    is_memory = true;
                 } else {
                     static_assert(0, "Not all argument types are handled");
                 }
@@ -75,7 +73,6 @@ Instruction Instruction::create(std::string line, const Config& config) {
 
         return Instruction(std::move(dst_reg),
                            std::move(src_regs),
-                           is_memory,
                            instr_config);
     }
 
